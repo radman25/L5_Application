@@ -27,24 +27,39 @@
 
 int main(void)
 {
-	can_msg_t *MSGtoSend;
-	MSGtoSend->msg_id = '7DF';
-	MSGtoSend->data = '0105';
+    // Repeat the code inside while(1) forever
+    while(1)
+    {
+        can_data_t DataToSend;
+        DataToSend.dwords[0] = '02010500';
 
-	if (!(CAN_init(can1, 100, 10, 10, 0, 0)))
-	{
-		printf("CAN initialization failed");
-	}
+        can_msg_t *MSGtoSend;
+        can_msg_t *MSGtoRx;
+        MSGtoSend->msg_id = '7DF';
+        MSGtoSend->data = DataToSend;
+
+        if(!(CAN_init(can1, 100, 10, 10, 0, 0)))
+        {
+            printf("CAN initialization failed");
+        }
+
+        CAN_reset_bus(can1);
+
+        CAN_tx(can1,MSGtoSend, 1000);
 
 
-	bool CAN_tx(can_t can, can_msg_t *msg, uint32_t timeout_ms);
 
-	CAN_tx(can1, *MSGtoSend, 1000);
+        CAN_rx(can1,MSGtoRx, 1000);
 
-	bool CAN_rx(can_t can, can_msg_t *msg, uint32_t timeout_ms);
+        can_data_t DataToRx;
 
+        DataToRx = MSGtoRx->data;
+        int test = DataToRx.bytes[3];
 
+        printf("Engine coolant Temp: %f\n", test);
 
+        delay_ms(1000);
+    }
 
-	return -1;
+    return -1;
 }
