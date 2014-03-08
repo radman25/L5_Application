@@ -23,38 +23,49 @@
 #include <stdio.h>      // printf() / scanf()
 #include "io.hpp"       // Board sensors
 #include "utilities.h"  // delay_ms()
-
+#include "can.h"  // CAN_init, RX, TX, etc.
 
 int main(void)
 {
-    // Repeat the code inside while(1) forever
+
     while(1)
     {
-        can_data_t DataToSend;
-        DataToSend.dwords[0] = '02010500';
+//Initialize, check if successful
 
-        can_msg_t *MSGtoSend;
-        can_msg_t *MSGtoRx;
-        MSGtoSend->msg_id = '7DF';
-        MSGtoSend->data = DataToSend;
-
-        if(!(CAN_init(can1, 100, 10, 10, 0, 0)))
-        {
-            printf("CAN initialization failed");
+        if(!(CAN_init(can1, 100, 10, 10, 0, 0)))   //CAN port 1, 100 kbps, 10-deep rx/tx queues,
+        {                                          //ignore bus_off_cb and data_over_cb (0,0)
+            printf("CAN initialization failed\n");
         }
 
         CAN_reset_bus(can1);
 
-        CAN_tx(can1,MSGtoSend, 1000);
+//Transmit
+        can_data_t Query;      //Send data of:
+        Query.qword = 0;       //
+        Query.bytes[0] = 0x02; //02 = byte 0, 2 following bytes
+        Query.bytes[1] = 0x01; //01 = byte 1, mode 01
+        Query.bytes[2] = 0x05; //05 = byte 2, PID 05
+        Query.bytes[3] = 0x00; //00 = byte 3, not used
 
+        can_msg_t MSGtoSend;
+        can_msg_t MSGtoRx;
 
+        MSGtoSend.msg_id = 0x7DF;   //Broadcast message (all available ECUs)
+        MSGtoSend.data = Query;     //Load message with the query data
 
-        CAN_rx(can1,MSGtoRx, 1000);
+        if(CAN_tx(can1,&MSGtoSend, 1000)) //Send Message with a 1 second timeout
+        {
+            printf("CAN msg sent to TX queue\n");
+        }
+//Receive
+        if(CAN_rx(can1,&MSGtoRx, 1000))    //Poll for Message with a 1 second timeout
+        {                                   //***Change to interrupt-driven in FreeRTOS
+            printf("CAN msg received from RX queue\n");
+        }
+        can_data_t Response;
 
-        can_data_t DataToRx;
-
-        DataToRx = MSGtoRx->data;
-        int test = DataToRx.bytes[3];
+        Response = MSGtoRx.data;
+        int test = Response.bytes[3];       //
 
         printf("Engine coolant Temp: %f\n", test);
 
